@@ -4,6 +4,7 @@ from src.retriever.retriever import Retriever
 from src.llm.ollama_client import OllamaClient
 from src.prompts.rag_prompt import RAG_PROMPT
 from src.chains.rag_chain import build_chain
+from src.memory.conversation_memory import ConversationMemory
 
 
 class RAGService:
@@ -22,6 +23,16 @@ class RAGService:
 
         self.llm = llm_client.get_llm()
 
+        # --------------------------------------
+        # Conversation Memory
+        # --------------------------------------
+
+        self.memory = ConversationMemory()
+
+        # --------------------------------------
+        # RAG Chain
+        # --------------------------------------
+
         self.chain = build_chain(
             self.retriever.get_retriever(),
             RAG_PROMPT,
@@ -34,6 +45,8 @@ class RAGService:
 
     def ask(self, question: str):
 
+        self.memory.add_user_message(question)
+
         retrieval_start = time.time()
 
         docs = self.retriever.search(question)
@@ -42,53 +55,63 @@ class RAGService:
 
         generation_start = time.time()
 
-        answer = self.chain.invoke(question)
+        history = "\n".join(
+            [
+                f"{msg.type}: {msg.content}"
+                for msg in self.memory.get_messages()
+            ]
+        )
+
+        answer = self.chain.invoke(
+            {
+                "question": question,
+                "chat_history": history,
+            }
+        )
 
         generation_time = time.time() - generation_start
 
+        self.memory.add_ai_message(answer)
+
         return {
-
             "question": question,
-
             "answer": answer,
-
             "documents": docs,
-
             "retrieval_time": retrieval_time,
-
             "generation_time": generation_time,
-
             "total_time": retrieval_time + generation_time,
-
         }
 
     # --------------------------------------------------
-    # Print Retrieved Docs
+    # Get Conversation History
     # --------------------------------------------------
 
-    def print_sources(self, docs):
+    def get_memory(self):
 
-        print("\n")
-        print("=" * 80)
-        print("RETRIEVED DOCUMENTS")
-        print("=" * 80)
-
-        for index, doc in enumerate(docs, start=1):
-
-            print(f"\nDocument {index}")
-
-            print("-" * 60)
-
-            print(doc.page_content)
-
-            print("\nMetadata")
-
-            print(doc.metadata)
+        return self.memory.get_messages()
 
     # --------------------------------------------------
-    # Streaming (Future Streamlit UI)
+    # Clear Conversation
+    # --------------------------------------------------
+
+    def clear_memory(self):
+
+        self.memory.clear()
+
+    # --------------------------------------------------
+    # Print Conversation (Debug)
+    # --------------------------------------------------
+
+    def print_memory(self):
+
+        self.memory.print_memory()
+
+    # --------------------------------------------------
+    # Streaming (Phase 3)
     # --------------------------------------------------
 
     def stream(self, question):
+
+        self.memory.add_user_message(question)
 
         return self.chain.stream(question)

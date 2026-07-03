@@ -1,39 +1,23 @@
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
+from langchain_core.runnables import RunnableLambda
 
 
-def build_chain(
-    retriever,
-    prompt,
-    llm
-):
+def build_chain(retriever, prompt, llm):
     """
-    Builds the complete RAG chain.
-
-    Flow:
-
-    Question
-        │
-        ▼
-    Retriever
-        │
-        ▼
-    Context
-        │
-        ▼
-    Prompt
-        │
-        ▼
-    LLM
-        │
-        ▼
-    String Output
+    Builds the conversational RAG chain.
     """
 
     chain = (
         {
-            "context": retriever,
-            "question": RunnablePassthrough()
+            "context": RunnableLambda(
+                lambda x: retriever.invoke(x["question"])
+            ),
+            "question": RunnableLambda(
+                lambda x: x["question"]
+            ),
+            "chat_history": RunnableLambda(
+                lambda x: x["chat_history"]
+            ),
         }
         | prompt
         | llm
