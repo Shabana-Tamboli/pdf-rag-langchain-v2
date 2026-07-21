@@ -1,81 +1,92 @@
 import streamlit as st
 
-from src.ui.message import (
-    render_chat_history,
-    render_user_message,
-    render_assistant_message,
-    render_thinking,
-    render_welcome,
-    render_error,
-)
-
 
 class ChatWindow:
     """
-    Handles the complete chat interaction.
+    Renders the chat interface and interacts with the RAG service.
     """
 
     def __init__(self, rag_service):
-
         self.rag = rag_service
 
-    # ==========================================================
-    # Initialize Session
-    # ==========================================================
-
-    def initialize(self):
-
         if "messages" not in st.session_state:
-
             st.session_state.messages = []
 
-    # ==========================================================
+    # ---------------------------------------------------------
     # Render Chat Window
-    # ==========================================================
+    # ---------------------------------------------------------
 
     def render(self):
 
-        self.initialize()
-
         st.title("🤖 QA AI Assistant")
 
-        st.caption("Ask questions from your PDF knowledge base.")
+        # ---------------------------------------------
+        # Display Previous Conversation
+        # ---------------------------------------------
 
-        # ------------------------------------------
-        # Welcome Screen
-        # ------------------------------------------
+        for message in st.session_state.messages:
 
-        if len(st.session_state.messages) == 0:
+            with st.chat_message(message["role"]):
 
-            render_welcome()
+                st.markdown(message["content"])
 
-        # ------------------------------------------
-        # Previous Conversation
-        # ------------------------------------------
+                if (
+                    message["role"] == "assistant"
+                    and message.get("sources")
+                ):
 
-        render_chat_history(st.session_state.messages)
+                    with st.expander("📄 Sources Used"):
 
-        # ------------------------------------------
-        # Chat Input
-        # ------------------------------------------
+                        for i, doc in enumerate(
+                            message["sources"],
+                            start=1,
+                        ):
+
+                            source = doc.metadata.get(
+                                "source",
+                                "Unknown"
+                            )
+
+                            page = doc.metadata.get(
+                                "page",
+                                "-"
+                            )
+
+                            st.markdown(
+                                f"**{i}. {source}**"
+                            )
+
+                            st.write(f"Page : {page}")
+
+                            with st.expander(
+                                "Retrieved Text",
+                                expanded=False,
+                            ):
+                                st.write(doc.page_content)
+
+                if (
+                    message["role"] == "assistant"
+                    and message.get("time") is not None
+                ):
+                    st.caption(
+                        f"⏱ Response Time : "
+                        f"{message['time']:.2f} sec"
+                    )
+
+        # ---------------------------------------------
+        # User Input
+        # ---------------------------------------------
 
         question = st.chat_input(
-            "Ask anything about your PDFs..."
+            "Ask anything about your documents..."
         )
 
-        if question:
+        if not question:
+            return
 
-            self.process_question(question)
-
-    # ==========================================================
-    # Process Question
-    # ==========================================================
-
-    def process_question(self, question):
-
-        # --------------------------
-        # Store User Message
-        # --------------------------
+        # ---------------------------------------------
+        # Store & Show User Message
+        # ---------------------------------------------
 
         st.session_state.messages.append(
             {
@@ -84,27 +95,79 @@ class ChatWindow:
             }
         )
 
-        render_user_message(question)
+        with st.chat_message("user"):
+            st.markdown(question)
 
-        # --------------------------
-        # Ask LLM
-        # --------------------------
+        # ---------------------------------------------
+        # Assistant Response
+        # ---------------------------------------------
 
-        try:
+        with st.chat_message("assistant"):
 
-            with render_thinking():
+            placeholder = st.empty()
 
-                response = self.rag.ask(question)
+            with st.spinner("Thinking..."):
 
-            render_assistant_message(response)
+                result = self.rag.ask(question)
 
-            st.session_state.messages.append(
-                {
-                    "role": "assistant",
-                    "content": response["answer"],
-                }
+            answer = ""
+
+            # Simulated streaming effect
+            for word in result["answer"].split():
+
+                answer += word + " "
+
+                placeholder.markdown(answer + "▌")
+
+            placeholder.markdown(answer)
+
+            docs = result["documents"]
+
+            if docs:
+
+                with st.expander("📄 Sources Used"):
+
+                    for i, doc in enumerate(
+                        docs,
+                        start=1,
+                    ):
+
+                        source = doc.metadata.get(
+                            "source",
+                            "Unknown"
+                        )
+
+                        page = doc.metadata.get(
+                            "page",
+                            "-"
+                        )
+
+                        st.markdown(
+                            f"**{i}. {source}**"
+                        )
+
+                        st.write(f"Page : {page}")
+
+                        with st.expander(
+                            "Retrieved Text",
+                            expanded=False,
+                        ):
+                            st.write(doc.page_content)
+
+            st.caption(
+                f"⏱ Response Time : "
+                f"{result['total_time']:.2f} sec"
             )
 
-        except Exception as ex:
+        # ---------------------------------------------
+        # Save Assistant Message
+        # ---------------------------------------------
 
-            render_error(str(ex))
+        st.session_state.messages.append(
+            {
+                "role": "assistant",
+                "content": answer,
+                "sources": docs,
+                "time": result["total_time"],
+            }
+        )

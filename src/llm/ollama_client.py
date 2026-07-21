@@ -5,75 +5,44 @@ from src.config.settings import OLLAMA_MODEL
 
 class OllamaClient:
     """
-    Wrapper class for Ollama LLM.
+    Wrapper around the Ollama LLM.
 
-    Responsible for:
-    - Loading the model
-    - Configuring parameters
-    - Returning a reusable LLM instance
+    Responsibilities
+    ----------------
+    - Load the configured model
+    - Return the LLM instance
+    - Support normal and streaming responses
     """
 
-    def __init__(
-        self,
-        model: str = OLLAMA_MODEL,
-        temperature: float = 0.2,
-        num_predict: int = 1024,
-        streaming: bool = True,
-    ):
+    def __init__(self):
 
-        self.model = model
-        self.temperature = temperature
-        self.num_predict = num_predict
-        self.streaming = streaming
+        self.llm = ChatOllama(
+            model=OLLAMA_MODEL,
+            temperature=0,
+            streaming=True,
+        )
 
-        self.llm = None
-
-    # -------------------------------------------------------
-    # Load Model
-    # -------------------------------------------------------
-
-    def load_model(self):
-
-        if self.llm is None:
-
-            self.llm = ChatOllama(
-
-                model=self.model,
-
-                temperature=self.temperature,
-
-                num_predict=self.num_predict,
-
-                streaming=self.streaming,
-
-            )
-
-        return self.llm
-
-    # -------------------------------------------------------
-    # Getter
-    # -------------------------------------------------------
+    # ---------------------------------------------------------
+    # Return LangChain LLM
+    # ---------------------------------------------------------
 
     def get_llm(self):
 
-        return self.load_model()
+        return self.llm
 
-    # -------------------------------------------------------
-    # Invoke
-    # -------------------------------------------------------
+    # ---------------------------------------------------------
+    # Standard Response
+    # ---------------------------------------------------------
 
     def invoke(self, prompt: str):
 
-        llm = self.load_model()
+        return self.llm.invoke(prompt)
 
-        return llm.invoke(prompt)
-
-    # -------------------------------------------------------
-    # Stream
-    # -------------------------------------------------------
+    # ---------------------------------------------------------
+    # Streaming Response
+    # ---------------------------------------------------------
 
     def stream(self, prompt: str):
 
-        llm = self.load_model()
-
-        return llm.stream(prompt)
+        for chunk in self.llm.stream(prompt):
+            yield chunk

@@ -1,83 +1,73 @@
+from typing import List
+
 from langchain_core.documents import Document
 
 from src.vector_store.vector_store_manager import VectorStoreManager
-from src.config.settings import TOP_K_RESULTS
 
 
 class Retriever:
     """
-    Handles document retrieval from the vector database.
+    Wrapper around the vector store.
+
+    Responsibilities
+    ----------------
+    - Retrieve relevant documents
+    - Return LangChain retriever
+    - Support future Hybrid Search
     """
 
-    def __init__(self, vector_store: VectorStoreManager):
+    def __init__(
+        self,
+        vector_store: VectorStoreManager,
+        top_k: int = 4,
+    ):
         self.vector_store = vector_store
+        self.top_k = top_k
 
     # ---------------------------------------------------------
-    # LangChain Retriever
-    # ---------------------------------------------------------
-
-    def get_retriever(self, k: int = TOP_K_RESULTS):
-        """
-        Returns LangChain Retriever.
-        """
-
-        return self.vector_store.get_retriever(k)
-
-    # ---------------------------------------------------------
-    # Similarity Search
+    # Retrieve Documents
     # ---------------------------------------------------------
 
     def search(
         self,
         question: str,
-        k: int = TOP_K_RESULTS,
-    ) -> list[Document]:
+    ) -> List[Document]:
+        """
+        Returns the most relevant documents.
+        """
 
         return self.vector_store.similarity_search(
             query=question,
-            k=k,
+            k=self.top_k,
         )
 
     # ---------------------------------------------------------
-    # Similarity Search With Score
+    # Retriever Interface
+    # ---------------------------------------------------------
+
+    def get_retriever(self):
+        """
+        Returns LangChain Retriever.
+        """
+
+        return self.vector_store.get_retriever(
+            k=self.top_k
+        )
+
+    # ---------------------------------------------------------
+    # Search With Scores
     # ---------------------------------------------------------
 
     def search_with_scores(
         self,
         question: str,
-        k: int = TOP_K_RESULTS,
     ):
+        """
+        Returns retrieved documents
+        along with similarity scores.
+        """
 
         return self.vector_store.similarity_search_with_score(
             query=question,
-            k=k,
+            k=self.top_k,
         )
-
-    # ---------------------------------------------------------
-    # Print Results
-    # ---------------------------------------------------------
-
-    def print_results(
-        self,
-        question: str,
-        k: int = TOP_K_RESULTS,
-    ):
-
-        results = self.search_with_scores(question, k)
-
-        print("\n" + "=" * 80)
-        print("RETRIEVED DOCUMENTS")
-        print("=" * 80)
-
-        for i, (doc, score) in enumerate(results, start=1):
-
-            print(f"\nDocument {i}")
-            print(f"Score : {score:.4f}")
-            print("-" * 60)
-
-            print(doc.page_content)
-
-            print("\nMetadata")
-            print(doc.metadata)
-
-        return results

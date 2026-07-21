@@ -1,134 +1,94 @@
 import streamlit as st
 
-from src.ui.components import (
-    render_metrics,
-    render_sources,
-)
 
-
-# ==========================================================
-# User Message
-# ==========================================================
-
-def render_user_message(message: str):
+class Message:
     """
-    Render a user chat message.
+    Renders chat messages in a consistent format.
+
+    Supports:
+    - User messages
+    - Assistant messages
+    - Markdown rendering
+    - Source citations
+    - Response timing
     """
 
-    with st.chat_message("user"):
-
-        st.markdown(message)
-
-
-# ==========================================================
-# Assistant Message
-# ==========================================================
-
-def render_assistant_message(response: dict):
-    """
-    Render AI response.
-    """
-
-    with st.chat_message("assistant"):
-
-        # ----------------------------
-        # Answer
-        # ----------------------------
-
-        st.markdown(response["answer"])
-
-        st.write("")
-
-        # ----------------------------
-        # Metrics
-        # ----------------------------
-
-        render_metrics(response)
-
-        st.write("")
-
-        # ----------------------------
-        # Sources
-        # ----------------------------
-
-        render_sources(response["documents"])
-
-
-# ==========================================================
-# Thinking Indicator
-# ==========================================================
-
-def render_thinking():
-    """
-    Spinner shown while the LLM is generating.
-    """
-
-    return st.spinner("🤖 Thinking...")
-
-
-# ==========================================================
-# Error Message
-# ==========================================================
-
-def render_error(message: str):
-
-    with st.chat_message("assistant"):
-
-        st.error(message)
-
-
-# ==========================================================
-# Welcome Screen
-# ==========================================================
-
-def render_welcome():
-
-    st.markdown(
+    @staticmethod
+    def user(content: str):
         """
-# 🤖 QA AI Assistant
+        Render user message.
+        """
 
-Welcome!
+        with st.chat_message("user"):
+            st.markdown(content)
 
-You can ask questions from your PDFs.
+    @staticmethod
+    def assistant(
+        content: str,
+        sources=None,
+        response_time=None,
+    ):
+        """
+        Render assistant message.
+        """
 
-### Example Questions
+        with st.chat_message("assistant"):
 
-- What is Selenium?
+            # -------------------------
+            # Answer
+            # -------------------------
 
-- Explain Explicit Wait.
+            st.markdown(content)
 
-- Difference between Implicit and Explicit Wait?
+            # -------------------------
+            # Sources
+            # -------------------------
 
-- Explain StaleElementReferenceException.
+            if sources:
 
-- What is Page Object Model?
+                with st.expander("📄 Sources Used", expanded=False):
 
-- What is XPath?
+                    for index, doc in enumerate(sources, start=1):
 
----
+                        metadata = doc.metadata
 
-Start typing below 👇
+                        source = metadata.get(
+                            "source",
+                            "Unknown"
+                        )
+
+                        page = metadata.get(
+                            "page",
+                            "-"
+                        )
+
+                        chunk = metadata.get(
+                            "chunk",
+                            "-"
+                        )
+
+                        st.markdown(
+                            f"""
+**{index}. {source}**
+
+- Page : {page}
+- Chunk : {chunk}
 """
-    )
+                        )
 
+                        with st.expander(
+                            "View Retrieved Text",
+                            expanded=False,
+                        ):
+                            st.write(doc.page_content)
 
-# ==========================================================
-# Chat History
-# ==========================================================
+            # -------------------------
+            # Statistics
+            # -------------------------
 
-def render_chat_history(messages):
-    """
-    Render all previous messages.
-    """
+            if response_time is not None:
 
-    for message in messages:
-
-        if message["role"] == "user":
-
-            render_user_message(message["content"])
-
-        else:
-
-            with st.chat_message("assistant"):
-
-                st.markdown(message["content"])
+                st.caption(
+                    f"⏱ Response generated in "
+                    f"{response_time:.2f} sec"
+                )

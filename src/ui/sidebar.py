@@ -1,3 +1,4 @@
+import json
 import streamlit as st
 
 from src.config.settings import (
@@ -8,85 +9,61 @@ from src.config.settings import (
 
 class Sidebar:
     """
-    Handles the complete application sidebar.
+    Handles the application sidebar.
 
-    Features:
-    - Project information
-    - New Chat
-    - Clear Chat
-    - Model Information
-    - Session Statistics
-    - Future placeholders
+    Features
+    --------
+    ✓ Model Information
+    ✓ Embedding Information
+    ✓ Chat Statistics
+    ✓ Export Chat
+    ✓ Clear Conversation
     """
 
     def __init__(self):
         pass
 
-    # ==========================================================
+    # ---------------------------------------------------------
     # Render Sidebar
-    # ==========================================================
+    # ---------------------------------------------------------
 
     def render(self):
 
         with st.sidebar:
 
-            # --------------------------------------------------
-            # Header
-            # --------------------------------------------------
-
             st.title("🤖 QA AI Assistant")
 
-            st.caption("Powered by LangChain + Ollama + FAISS")
-
             st.divider()
 
-            # --------------------------------------------------
-            # Chat Controls
-            # --------------------------------------------------
-
-            st.subheader("💬 Chat")
-
-            if st.button(
-                "➕ New Chat",
-                use_container_width=True,
-            ):
-                st.session_state.messages = []
-                st.rerun()
-
-            if st.button(
-                "🗑 Clear Chat",
-                use_container_width=True,
-            ):
-                st.session_state.messages = []
-                st.rerun()
-
-            st.divider()
-
-            # --------------------------------------------------
+            # -------------------------------------------------
             # Model Information
-            # --------------------------------------------------
+            # -------------------------------------------------
 
-            st.subheader("🤖 Models")
+            st.subheader("🧠 Model")
 
-            st.markdown(
-                f"""
-**LLM**
+            st.success(f"LLM : {OLLAMA_MODEL}")
 
-`{OLLAMA_MODEL}`
-
-**Embedding Model**
-
-`{EMBEDDING_MODEL}`
-"""
-            )
+            st.info(f"Embeddings : {EMBEDDING_MODEL}")
 
             st.divider()
 
-            # --------------------------------------------------
-            # Session Statistics
-            # --------------------------------------------------
+            # -------------------------------------------------
+            # Vector Store
+            # -------------------------------------------------
 
-            st.subheader("📊 Session")
+            st.subheader("📚 Knowledge Base")
+
+            st.write("FAISS Vector Database")
+
+            st.success("Loaded Successfully")
+
+            st.divider()
+
+            # -------------------------------------------------
+            # Conversation Statistics
+            # -------------------------------------------------
+
+            st.subheader("📊 Chat Statistics")
 
             total_messages = len(
                 st.session_state.get("messages", [])
@@ -94,30 +71,18 @@ class Sidebar:
 
             user_messages = len(
                 [
-                    msg
-                    for msg in st.session_state.get("messages", [])
-                    if msg["role"] == "user"
+                    m
+                    for m in st.session_state.get("messages", [])
+                    if m["role"] == "user"
                 ]
             )
 
             assistant_messages = len(
                 [
-                    msg
-                    for msg in st.session_state.get("messages", [])
-                    if msg["role"] == "assistant"
+                    m
+                    for m in st.session_state.get("messages", [])
+                    if m["role"] == "assistant"
                 ]
-            )
-
-            col1, col2 = st.columns(2)
-
-            col1.metric(
-                "User",
-                user_messages,
-            )
-
-            col2.metric(
-                "AI",
-                assistant_messages,
             )
 
             st.metric(
@@ -125,74 +90,106 @@ class Sidebar:
                 total_messages,
             )
 
-            st.divider()
-
-            # --------------------------------------------------
-            # Knowledge Base
-            # --------------------------------------------------
-
-            st.subheader("📚 Knowledge Base")
-
-            st.success("Vector Database Loaded")
-
-            st.info("Retriever Ready")
-
-            st.info("LLM Connected")
-
-            st.divider()
-
-            # --------------------------------------------------
-            # Future Features
-            # --------------------------------------------------
-
-            st.subheader("🚀 Coming Soon")
-
-            st.checkbox(
-                "Conversation Memory",
-                value=False,
-                disabled=True,
+            st.metric(
+                "User Questions",
+                user_messages,
             )
 
-            st.checkbox(
-                "Streaming Response",
-                value=False,
-                disabled=True,
-            )
-
-            st.checkbox(
-                "Upload PDF",
-                value=False,
-                disabled=True,
-            )
-
-            st.checkbox(
-                "Multi Chat",
-                value=False,
-                disabled=True,
-            )
-
-            st.checkbox(
-                "Dark Mode",
-                value=False,
-                disabled=True,
+            st.metric(
+                "AI Responses",
+                assistant_messages,
             )
 
             st.divider()
 
-            # --------------------------------------------------
-            # Footer
-            # --------------------------------------------------
+            # -------------------------------------------------
+            # Clear Chat
+            # -------------------------------------------------
 
-            st.caption("Version 2.0")
+            st.subheader("🧹 Conversation")
 
-            st.caption("Developed using")
+            if st.button(
+                "🗑 Clear Conversation",
+                use_container_width=True,
+            ):
+
+                st.session_state.messages = []
+
+                if "rag" in st.session_state:
+
+                    st.session_state.rag.clear_memory()
+
+                st.success("Conversation Cleared")
+
+                st.rerun()
+
+            st.divider()
+
+            # -------------------------------------------------
+            # Export Chat
+            # -------------------------------------------------
+
+            st.subheader("📥 Export Conversation")
+
+            chat_json = json.dumps(
+                st.session_state.get(
+                    "messages",
+                    [],
+                ),
+                indent=4,
+                default=str,
+            )
+
+            st.download_button(
+                label="⬇ Download JSON",
+                data=chat_json,
+                file_name="conversation.json",
+                mime="application/json",
+                use_container_width=True,
+            )
+
+            markdown = ""
+
+            for msg in st.session_state.get("messages", []):
+
+                role = (
+                    "User"
+                    if msg["role"] == "user"
+                    else "Assistant"
+                )
+
+                markdown += f"## {role}\n\n"
+
+                markdown += msg["content"]
+
+                markdown += "\n\n"
+
+            st.download_button(
+                label="⬇ Download Markdown",
+                data=markdown,
+                file_name="conversation.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+
+            st.divider()
+
+            # -------------------------------------------------
+            # About
+            # -------------------------------------------------
+
+            st.subheader("ℹ️ About")
 
             st.markdown(
                 """
-- LangChain
-- Ollama
-- FAISS
-- Streamlit
-- HuggingFace Embeddings
+**Version:** Phase 3
+
+**Framework:** LangChain
+
+**Vector Store:** FAISS
+
+**LLM:** Ollama
+
+**UI:** Streamlit
 """
             )
